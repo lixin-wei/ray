@@ -7,11 +7,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.ray.api.RayActor;
+import org.ray.streaming.api.Language;
 import org.ray.streaming.jobgraph.JobVertex;
 import org.ray.streaming.jobgraph.VertexType;
 import org.ray.streaming.operator.StreamOperator;
-import org.ray.streaming.runtime.core.processor.ProcessBuilder;
-import org.ray.streaming.runtime.core.processor.StreamProcessor;
 import org.ray.streaming.runtime.master.JobRuntimeContext;
 import org.ray.streaming.runtime.worker.JobWorker;
 
@@ -33,6 +32,8 @@ public class ExecutionJobVertex {
    */
   private final String jobVertexName;
   private final VertexType vertexType;
+  private final Language language;
+  private final StreamOperator streamOperator;
   private int parallelism;
   private List<ExecutionVertex> executionVertices;
 
@@ -46,6 +47,8 @@ public class ExecutionJobVertex {
     this.jobVertexName = generateVertexName(jobVertexId, jobVertex.getStreamOperator());
     this.vertexType = jobVertex.getVertexType();
     this.parallelism = jobVertex.getParallelism();
+    this.language = jobVertex.getLanguage();
+    this.streamOperator = jobVertex.getStreamOperator();
     this.runtimeContext = runtimeContext;
     this.executionVertices = createExecutionVertices(jobVertex.getStreamOperator(), buildTime);
   }
@@ -133,6 +136,14 @@ public class ExecutionJobVertex {
 
   public boolean isSinkVertex() {
     return getVertexType() == VertexType.SINK;
+  }
+
+  public Language getLanguage() {
+    return language;
+  }
+
+  public StreamOperator getStreamOperator() {
+    return streamOperator;
   }
 
   public JobRuntimeContext getRuntimeContext() {

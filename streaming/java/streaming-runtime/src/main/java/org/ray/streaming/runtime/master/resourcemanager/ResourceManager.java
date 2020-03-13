@@ -23,9 +23,8 @@ public interface ResourceManager {
    *
    * @param container Specify the container to be allocated.
    * @param requireResource Resource size to be requested.
-   * @return Allocated resource.
    */
-  Map<String, Double> allocateResource(final Container container,
+  void allocateResource(final Container container,
       final Map<String, Double> requireResource);
 
   /**

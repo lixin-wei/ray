@@ -7,10 +7,10 @@ import org.ray.streaming.api.function.Function;
 import org.ray.streaming.api.partition.Partition;
 import org.ray.streaming.python.PythonFunction;
 import org.ray.streaming.python.PythonPartition;
-import org.ray.streaming.runtime.core.graph.ExecutionEdge;
-import org.ray.streaming.runtime.core.graph.ExecutionGraph;
-import org.ray.streaming.runtime.core.graph.ExecutionNode;
-import org.ray.streaming.runtime.core.graph.ExecutionTask;
+import org.ray.streaming.runtime.core.graph.executiongraph.ExecutionEdge;
+import org.ray.streaming.runtime.core.graph.executiongraph.ExecutionGraph;
+import org.ray.streaming.runtime.core.graph.executiongraph.ExecutionJobVertex;
+import org.ray.streaming.runtime.core.graph.executiongraph.ExecutionVertex;
 import org.ray.streaming.runtime.generated.RemoteCall;
 import org.ray.streaming.runtime.generated.Streaming;
 
@@ -25,37 +25,39 @@ public class GraphPbBuilder {
   public RemoteCall.ExecutionGraph buildExecutionGraphPb(ExecutionGraph graph) {
     RemoteCall.ExecutionGraph.Builder builder = RemoteCall.ExecutionGraph.newBuilder();
     builder.setBuildTime(graph.getBuildTime());
-    for (ExecutionNode node : graph.getExecutionNodeList()) {
+    for (ExecutionJobVertex executionJobVertex : graph.getExecutionJobVertices()) {
       RemoteCall.ExecutionGraph.ExecutionNode.Builder nodeBuilder =
           RemoteCall.ExecutionGraph.ExecutionNode.newBuilder();
-      nodeBuilder.setNodeId(node.getNodeId());
-      nodeBuilder.setParallelism(node.getParallelism());
+      nodeBuilder.setNodeId(executionJobVertex.getJobVertexId());
+      nodeBuilder.setParallelism(executionJobVertex.getParallelism());
       nodeBuilder.setNodeType(
-          Streaming.NodeType.valueOf(node.getNodeType().name()));
-      nodeBuilder.setLanguage(Streaming.Language.valueOf(node.getLanguage().name()));
-      byte[] functionBytes = serializeFunction(node.getStreamOperator().getFunction());
+          Streaming.NodeType.valueOf(executionJobVertex.getVertexType().name()));
+      nodeBuilder.setLanguage(Streaming.Language.valueOf(executionJobVertex.getLanguage().name()));
+
+      byte[] functionBytes = serializeFunction(
+          executionJobVertex.getStreamOperator().getFunction());
       nodeBuilder.setFunction(ByteString.copyFrom(functionBytes));
 
       // build tasks
-      for (ExecutionTask task : node.getExecutionTasks()) {
+      for (ExecutionVertex executionVertex : executionJobVertex.getExecutionVertices()) {
         RemoteCall.ExecutionGraph.ExecutionTask.Builder taskBuilder =
             RemoteCall.ExecutionGraph.ExecutionTask.newBuilder();
-        byte[] serializedActorHandle = ((NativeRayActor) task.getWorker()).toBytes();
+        byte[] serializedActorHandle = ((NativeRayActor) executionVertex.getWorkerActor())
+            .toBytes();
         taskBuilder
-            .setTaskId(task.getTaskId())
-            .setTaskIndex(task.getTaskIndex())
+            .setTaskId(executionVertex.getVertexId())
+            .setTaskIndex(executionVertex.getVertexIndex())
             .setWorkerActor(ByteString.copyFrom(serializedActorHandle));
         nodeBuilder.addExecutionTasks(taskBuilder.build());
-      }
 
-      // build edges
-      for (ExecutionEdge edge : node.getInputsEdges()) {
-        nodeBuilder.addInputEdges(buildEdgePb(edge));
+        // build edges
+        for (ExecutionEdge executionEdge : executionVertex.getInputEdges()) {
+          nodeBuilder.addInputEdges(buildEdgePb(executionEdge));
+        }
+        for (ExecutionEdge edge : executionVertex.getOutputEdges()) {
+          nodeBuilder.addOutputEdges(buildEdgePb(edge));
+        }
       }
-      for (ExecutionEdge edge : node.getOutputEdges()) {
-        nodeBuilder.addOutputEdges(buildEdgePb(edge));
-      }
-
       builder.addExecutionNodes(nodeBuilder.build());
     }
 
@@ -65,8 +67,8 @@ public class GraphPbBuilder {
   private RemoteCall.ExecutionGraph.ExecutionEdge buildEdgePb(ExecutionEdge edge) {
     RemoteCall.ExecutionGraph.ExecutionEdge.Builder edgeBuilder =
         RemoteCall.ExecutionGraph.ExecutionEdge.newBuilder();
-    edgeBuilder.setSrcNodeId(edge.getSrcNodeId());
-    edgeBuilder.setTargetNodeId(edge.getTargetNodeId());
+    edgeBuilder.setSrcNodeId(edge.getSourceVertexId());
+    edgeBuilder.setTargetNodeId(edge.getTargetVertexId());
     edgeBuilder.setPartition(ByteString.copyFrom(serializePartition(edge.getPartition())));
     return edgeBuilder.build();
   }

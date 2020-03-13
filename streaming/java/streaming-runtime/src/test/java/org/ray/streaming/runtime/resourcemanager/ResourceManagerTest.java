@@ -88,8 +88,7 @@ public class ResourceManagerTest extends BaseUnitTest {
     executionGraph.getAllAddedExecutionVertices().forEach(vertex -> {
       Container container = resourceManager.getResources()
           .getRegisterContainerByContainerId(vertex.getSlot().getContainerID());
-      Map<String, Double> resource = resourceManager.allocateResource(container, vertex.getResources());
-      Assert.assertNotNull(resource);
+      resourceManager.allocateResource(container, vertex.getResources());
     });
     Assert.assertEquals(container1.getAvailableResource().get(ResourceConfig.RESOURCE_KEY_CPU), 14.0);
     Assert.assertEquals(container2.getAvailableResource().get(ResourceConfig.RESOURCE_KEY_CPU), 14.0);

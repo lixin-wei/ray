@@ -1,7 +1,6 @@
 package org.ray.streaming.runtime.master.resourcemanager;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -18,9 +17,13 @@ import org.ray.streaming.runtime.core.resource.Resources;
 import org.ray.streaming.runtime.master.JobRuntimeContext;
 import org.ray.streaming.runtime.master.scheduler.strategy.SlotAssignStrategy;
 import org.ray.streaming.runtime.master.scheduler.strategy.SlotAssignStrategyFactory;
+import org.ray.streaming.runtime.util.RayUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Resource manager implementation.
+ */
 public class ResourceManagerImpl implements ResourceManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(ResourceManagerImpl.class);
@@ -74,29 +77,26 @@ public class ResourceManagerImpl implements ResourceManager {
   }
 
   @Override
-  public Map<String, Double> allocateResource(final Container container,
+  public void allocateResource(final Container container,
       final Map<String, Double> requireResource) {
     LOG.info("Start to allocate resource for actor with container: {}.", container);
 
     // allocate resource to actor
-    Map<String, Double> resources = new HashMap<>();
     Map<String, Double> containResource = container.getAvailableResource();
     for (Map.Entry<String, Double> entry : containResource.entrySet()) {
       if (requireResource.containsKey(entry.getKey())) {
         double availableResource = entry.getValue() - requireResource.get(entry.getKey());
         entry.setValue(availableResource);
-        resources.put(entry.getKey(), requireResource.get(entry.getKey()));
       }
     }
 
     LOG.info("Allocate resource: {} to container {}.", requireResource, container);
-    return resources;
   }
 
   @Override
   public void deallocateResource(final Container container,
       final Map<String, Double> releaseResource) {
-    LOG.info("Deallocating resource for container {}.", container);
+    LOG.info("Deallocate resource for container {}.", container);
 
     Map<String, Double> containResource = container.getAvailableResource();
     for (Map.Entry<String, Double> entry : containResource.entrySet()) {
@@ -131,7 +131,7 @@ public class ResourceManagerImpl implements ResourceManager {
    */
   private void checkAndUpdateResources() {
     // get all started nodes
-    List<NodeInfo> latestNodeInfos = Ray.getRuntimeContext().getAllNodeInfo();
+    List<NodeInfo> latestNodeInfos = RayUtil.getNodeInfoList();
 
     List<NodeInfo> addNodes = latestNodeInfos.stream().filter(nodeInfo -> {
       for (Container container : resources.getRegisterContainers()) {

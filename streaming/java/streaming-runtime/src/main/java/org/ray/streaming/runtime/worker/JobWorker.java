@@ -2,7 +2,6 @@ package org.ray.streaming.runtime.worker;
 
 import java.util.List;
 import org.ray.api.Ray;
-import org.ray.api.annotation.RayRemote;
 import org.ray.runtime.RayMultiWorkerNativeRuntime;
 import org.ray.runtime.functionmanager.JavaFunctionDescriptor;
 import org.ray.streaming.runtime.config.StreamingWorkerConfig;
@@ -27,7 +26,6 @@ import org.slf4j.LoggerFactory;
 /**
  * The streaming worker implementation class, it is ray actor.
  */
-@RayRemote
 public class JobWorker {
 
   private static final Logger LOG = LoggerFactory.getLogger(JobWorker.class);
@@ -47,23 +45,29 @@ public class JobWorker {
   }
 
   public Boolean init(JobWorkerContext workerContext) {
-    LOG.info("Init worker context {}. workerId: {}.", workerContext, workerContext.getWorkerId());
+    LOG.info("Init worker with context: {}. workerId: {}.",
+        workerContext, workerContext.getWorkerId());
     this.workerContext = workerContext;
     this.executionVertex = workerContext.getExecutionVertex();
     this.workerConfig = executionVertex.getWorkerConfig();
 
     //init transfer
-    TransferChannelType channelType = workerConfig.transferConfig.channelType();
-    if (TransferChannelType.NATIVE_CHANNEL == channelType) {
-      transferHandler = new TransferHandler(
+    try {
+      TransferChannelType channelType = workerConfig.transferConfig.channelType();
+      if (TransferChannelType.NATIVE_CHANNEL == channelType) {
+        transferHandler = new TransferHandler(
           getNativeCoreWorker(),
           new JavaFunctionDescriptor(JobWorker.class.getName(), "onWriterMessage", "([B)V"),
           new JavaFunctionDescriptor(JobWorker.class.getName(), "onWriterMessageSync", "([B)[B"),
           new JavaFunctionDescriptor(JobWorker.class.getName(), "onReaderMessage", "([B)V"),
           new JavaFunctionDescriptor(JobWorker.class.getName(), "onReaderMessageSync", "([B)[B"));
-    }
+      }
 
-    this.task = createStreamTask();
+      task = createStreamTask();
+    } catch (Exception e) {
+      LOG.error("Init worker failed.", e);
+      return false;
+    }
 
     return true;
   }
